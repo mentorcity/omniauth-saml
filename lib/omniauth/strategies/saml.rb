@@ -134,7 +134,7 @@ end
           elsif on_subpath?(:spslo)
             if options.idp_slo_target_url
               if settings.single_logout_service_binding =~ /SOAP/ #MC
-	        url = settings.idp_slo_target_url #MC
+                url = settings.idp_slo_target_url #MC
                 body = soap_logout_request(settings) #MC
                 soap_send(body, url) #MC
                 redirect(slo_relay_state) #MC
@@ -187,10 +187,15 @@ end
 
       def soap_logout_request(settings) #MC
         logout_request = OneLogin::RubySaml::Logoutrequest.new()
-        request_doc = logout_request.create_logout_request_xml_doc(settings)
-        body = "<?xml version='1.0' encoding='UTF-8'?><soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body>"
-        request_doc.write(body)
-        body + "</soap:Body></soap:Envelope>"
+        session[:transaction_id] = logout_request.id
+        if settings.name_identifier_value.nil?
+          settings.name_identifier_value = session[:userid]
+        end
+        relay_state =  url_for controller: 'saml', action: 'index'
+        lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
+        request_doc = logout_request.create_logout_request_xml_doc(settings, RelayState: relay_state)
+        settings.security.logout_requests_signed = lrs
+        slo_logout_request.sign_document(request_doc, settings)
       end
 
       def soap_slo_logout_response(settings, logout_request_id) #MC
