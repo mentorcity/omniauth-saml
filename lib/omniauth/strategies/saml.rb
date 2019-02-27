@@ -32,6 +32,10 @@ module OmniAuth
       option :idp_slo_session_destroy, proc { |_env, session| session.clear }
 
       def request_phase
+if request.request_method == "POST" #MC make up for wrong metadata
+request.env["PATH_INFO"] += "/callback"
+return callback_phase
+end
         options[:assertion_consumer_service_url] ||= callback_url
         runtime_request_parameters = options.delete(:idp_sso_target_url_runtime_params)
 
@@ -44,7 +48,9 @@ module OmniAuth
         end
 
         authn_request = OneLogin::RubySaml::Authrequest.new
-        settings = OneLogin::RubySaml::Settings.new(options)
+        authn_requests_embed_sign = options.security.authn_requests_embed_sign #MC
+        authn_requests_embed_sign = options.security.embed_sign if authn_requests_embed_sign.nil? #MC
+        settings = OneLogin::RubySaml::Settings.new(options.merge(security: {embed_sign: authn_requests_embed_sign})) #MC
 
         redirect(authn_request.create(settings, additional_params))
       end
@@ -117,16 +123,24 @@ module OmniAuth
 
             Rack::Response.new(response.generate(settings), 200, { "Content-Type" => "application/xml" }).finish
           elsif on_subpath?(:slo)
-            if request.params["SAMLResponse"]
-              handle_logout_response(request.params["SAMLResponse"], settings)
-            elsif request.params["SAMLRequest"]
-              handle_logout_request(request.params["SAMLRequest"], settings)
+            saml_soap_string = request_is_soapy? ? extract_saml_from_request : "" #MC
+            if request.params["SAMLResponse"] || saml_soap_string.match(/LogoutResponse/) #MC
+              handle_logout_response(request.params["SAMLResponse"] || saml_soap_string, settings) #MC
+            elsif request.params["SAMLRequest"] || saml_soap_string.match(/LogoutRequest/) #MC
+              handle_logout_request(request.params["SAMLRequest"] || saml_soap_string, settings) #MC
             else
               raise OmniAuth::Strategies::SAML::ValidationError.new("SAML logout response/request missing")
             end
           elsif on_subpath?(:spslo)
             if options.idp_slo_target_url
-              redirect(generate_logout_request(settings))
+              if settings.single_logout_service_binding =~ /SOAP/ #MC
+	        url = settings.idp_slo_target_url #MC
+                body = soap_logout_request(settings) #MC
+                soap_send(body, url) #MC
+                redirect(slo_relay_state) #MC
+              else #MC
+                redirect(generate_logout_request(settings))
+              end #MC
             else
               Rack::Response.new("Not Implemented", 501, { "Content-Type" => "text/html" }).finish
             end
@@ -170,6 +184,55 @@ module OmniAuth
       end
 
       private
+
+      def soap_logout_request(settings) #MC
+        logout_request = OneLogin::RubySaml::Logoutrequest.new()
+        request_doc = logout_request.create_logout_request_xml_doc(settings)
+        body = "<?xml version='1.0' encoding='UTF-8'?><soap:Envelope xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:soap='http://schemas.xmlsoap.org/soap/envelope/'><soap:Body>"
+        request_doc.write(body)
+        body + "</soap:Body></soap:Envelope>"
+      end
+
+      def soap_slo_logout_response(settings, logout_request_id) #MC
+        slo_logout_response = OneLogin::RubySaml::SloLogoutresponse.new()
+        lrs, settings.security.logout_responses_signed = [settings.security.logout_responses_signed, false]
+        response_doc = slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id)
+        settings.security.logout_responses_signed = lrs
+        slo_logout_response.sign_document(response_doc, settings)
+      end
+
+      def soap_parse(message) #MC
+        Nokogiri::XML(message)
+      end
+
+      def soap_send(body, url) #MC
+        uri = URI.parse(url)
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = true
+        headers = {
+          'Content-Type' => 'text/xml; charset=utf-8',
+          'SOAPAction' => url
+        }
+        http.post(uri.path, body, headers)
+      end
+
+      def request_is_soapy? #MC
+        request.content_type == "text/xml" && request.body.length > 100
+      end
+
+      def http_body_content #MC
+        pos = request.body.pos
+        request.body.rewind
+        body = request.body.read
+        request.body.seek(pos)
+        body
+      end
+
+      def extract_saml_from_request #MC
+        soap = soap_parse(http_body_content)
+        saml_elements = soap.at_xpath('//saml2p:LogoutRequest|//saml2p:LogoutResponse', 'saml2p' => 'urn:oasis:names:tc:SAML:2.0:protocol')
+        saml_elements.to_xml(save_with: Nokogiri::XML::Node::SaveOptions::AS_XML)
+      end
 
       def on_subpath?(subpath)
         on_path?("#{request_path}/#{subpath}")
@@ -235,8 +298,13 @@ module OmniAuth
 
           # Generate a response to the IdP.
           logout_request_id = logout_request.id
-          logout_response = OneLogin::RubySaml::SloLogoutresponse.new.create(settings, logout_request_id, nil, RelayState: slo_relay_state)
-          redirect(logout_response)
+          if settings.single_logout_service_binding =~ /SOAP/ #MC
+            response = soap_slo_logout_response(settings, logout_request_id) #MC
+            Rack::Response.new(response.to_s, 200, { "Content-Type" => "application/xml; charset=utf-8" }).finish #MC
+          else #MC
+            logout_response = OneLogin::RubySaml::SloLogoutresponse.new.create(settings, logout_request_id, nil, RelayState: slo_relay_state)
+            redirect(logout_response)
+          end #MC
         else
           raise OmniAuth::Strategies::SAML::ValidationError.new("SAML failed to process LogoutRequest")
         end
