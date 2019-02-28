@@ -187,7 +187,7 @@ end
 
       def soap_logout_request(settings) #MC
         logout_request = OneLogin::RubySaml::Logoutrequest.new()
-        session[:transaction_id] = logout_request.id
+        session[:transaction_id] = logout_request.uuid
         if settings.name_identifier_value.nil?
           settings.name_identifier_value = session[:userid]
         end
