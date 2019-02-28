@@ -135,8 +135,8 @@ end
             if options.idp_slo_target_url
               if settings.single_logout_service_binding =~ /SOAP/ #MC
                 url = settings.idp_slo_target_url #MC
-                soap_logout_request(settings).write(body) #MC
-                soap_send(body, url) #MC
+                body = soap_logout_request(settings)
+                soap_send(body.to_s, url) #MC
                 redirect(slo_relay_state) #MC
               else #MC
                 redirect(generate_logout_request(settings))
@@ -303,8 +303,8 @@ end
           # Generate a response to the IdP.
           logout_request_id = logout_request.id
           if settings.single_logout_service_binding =~ /SOAP/ #MC
-            soap_slo_logout_response(settings, logout_request_id).write(response) #MC
-            Rack::Response.new(response, 200, { "Content-Type" => "application/xml; charset=utf-8" }).finish #MC
+            response = soap_slo_logout_response(settings, logout_request_id)
+            Rack::Response.new(response.to_s, 200, { "Content-Type" => "application/xml; charset=utf-8" }).finish #MC
           else #MC
             logout_response = OneLogin::RubySaml::SloLogoutresponse.new.create(settings, logout_request_id, nil, RelayState: slo_relay_state)
             redirect(logout_response)
