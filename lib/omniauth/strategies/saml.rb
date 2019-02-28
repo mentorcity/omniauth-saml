@@ -191,9 +191,8 @@ end
         if settings.name_identifier_value.nil?
           settings.name_identifier_value = session[:userid]
         end
-        relay_state =  url_for controller: 'saml', action: 'index'
         lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
-        request_doc = logout_request.create_logout_request_xml_doc(settings, RelayState: relay_state)
+        request_doc = logout_request.create_logout_request_xml_doc(settings, true)
         settings.security.logout_requests_signed = lrs
         slo_logout_request.sign_document(request_doc, settings)
       end
@@ -201,7 +200,7 @@ end
       def soap_slo_logout_response(settings, logout_request_id) #MC
         slo_logout_response = OneLogin::RubySaml::SloLogoutresponse.new()
         lrs, settings.security.logout_responses_signed = [settings.security.logout_responses_signed, false]
-        response_doc = slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id)
+        response_doc = slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id, nil, true)
         settings.security.logout_responses_signed = lrs
         slo_logout_response.sign_document(response_doc, settings)
       end
