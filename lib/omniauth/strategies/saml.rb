@@ -194,7 +194,7 @@ end
         lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
         request_doc = logout_request.create_logout_request_xml_doc(settings, true)
         settings.security.logout_requests_signed = lrs
-        slo_logout_request.sign_document(request_doc, settings)
+        logout_request.sign_document(request_doc, settings)
       end
 
       def soap_slo_logout_response(settings, logout_request_id) #MC
