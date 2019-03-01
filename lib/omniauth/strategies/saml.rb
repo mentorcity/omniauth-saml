@@ -3,6 +3,17 @@ require 'ruby-saml'
 
 module OmniAuth
   module Strategies
+    unless Rails.env.production?
+      class MessageLogger #MC
+        @@message_logger = Logger.new('log/saml_messages.log')
+        @@message_logger.formatter = proc { |severity, datetime, progname, msg| "#{datetime}: #{msg}\n" }
+
+        def self.log(string)
+          @@message_logger.debug string
+        end
+      end
+    end
+
     class SAML
       include OmniAuth::Strategy
 
@@ -125,9 +136,13 @@ end
           elsif on_subpath?(:slo)
             saml_soap_string = request_is_soapy? ? extract_saml_from_request : "" #MC
             if request.params["SAMLResponse"] || saml_soap_string.match(/LogoutResponse/) #MC
-              handle_logout_response(request.params["SAMLResponse"] || saml_soap_string, settings) #MC
+              message = request.params["SAMLResponse"] || saml_soap_string #MC
+              message_log(location: :on_subpath_slo_saml_response, received: message) #MC 
+              handle_logout_response(message, settings) #MC
             elsif request.params["SAMLRequest"] || saml_soap_string.match(/LogoutRequest/) #MC
-              handle_logout_request(request.params["SAMLRequest"] || saml_soap_string, settings) #MC
+              message = request.params["SAMLRequest"] || saml_soap_string #MC
+              message_log(location: :on_subpath_slo_saml_request, received: message) #MC
+              handle_logout_request(message, settings) #MC
             else
               raise OmniAuth::Strategies::SAML::ValidationError.new("SAML logout response/request missing")
             end
@@ -136,7 +151,9 @@ end
               if settings.single_logout_service_binding =~ /SOAP/ #MC
                 url = settings.idp_slo_target_url #MC
                 body = soap_logout_request(settings)
-                soap_send(body.to_s, url) #MC
+                message_log(location: :on_subpath_spslo, sent: body.to_s) #MC
+                res = soap_send(body.to_s, url) #MC
+                #TODO: something with res? What if it's not 200?
                 redirect(slo_relay_state) #MC
               else #MC
                 redirect(generate_logout_request(settings))
@@ -184,6 +201,12 @@ end
       end
 
       private
+
+      def message_log(params = {})
+        return unless Module.const_get("MessageLogger")
+        direction = params.key?(:sent) ? :sent : :received
+        MessageLogger.log("#{params[:location]}: #{direction}: #{params[direction]}")
+      end
 
       def soap_logout_request(settings) #MC
         logout_request = OneLogin::RubySaml::Logoutrequest.new()
@@ -251,11 +274,13 @@ end
         @name_id = response.name_id
         @attributes = response.attributes
         @response_object = response
+        message_log(location: :handle_response, received: response.decrypted_document) #MC
 
         if @name_id.nil? || @name_id.empty?
           raise OmniAuth::Strategies::SAML::ValidationError.new("SAML response missing 'name_id'")
         end
 
+        session["sessionindex"] = response.sessionindex #MC
         session["saml_uid"] = @name_id
         yield
       end
@@ -286,6 +311,7 @@ end
         logout_response.validate
 
         session.delete("saml_uid")
+        session.delete("sessionindex")
         session.delete("saml_transaction_id")
 
         redirect(slo_relay_state)
