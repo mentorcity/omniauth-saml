@@ -3,14 +3,12 @@ require 'ruby-saml'
 
 module OmniAuth
   module Strategies
-    unless Rails.env.production?
-      class MessageLogger #MC
-        @@message_logger = Logger.new('log/saml_messages.log')
-        @@message_logger.formatter = proc { |severity, datetime, progname, msg| "#{datetime}: #{msg}\n" }
+    class MessageLogger #MC
+      @@message_logger = Logger.new('log/saml_messages.log')
+      @@message_logger.formatter = proc { |severity, datetime, progname, msg| "#{datetime}: #{msg}\n" }
 
-        def self.log(string)
-          @@message_logger.debug string
-        end
+      def self.log(string)
+        @@message_logger.debug string
       end
     end
 
@@ -203,7 +201,7 @@ end
       private
 
       def message_log(params = {})
-        return unless Module.const_get("MessageLogger")
+        return if Rails.env.production?
         direction = params.key?(:sent) ? :sent : :received
         MessageLogger.log("#{params[:location]}: #{direction}: #{params[direction]}")
       end
