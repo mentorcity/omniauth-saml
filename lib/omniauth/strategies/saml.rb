@@ -217,7 +217,8 @@ end
         lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
         request_doc = logout_request.create_logout_request_xml_doc(settings, true)
         settings.security.logout_requests_signed = lrs
-        logout_request.sign_document(request_doc, settings)
+        encrypted_doc = logout_request.encrypt_document(request_doc, settings)
+        logout_request.sign_document(encrypted_doc, settings)
       end
 
       def soap_slo_logout_response(settings, logout_request_id) #MC
@@ -225,7 +226,8 @@ end
         lrs, settings.security.logout_responses_signed = [settings.security.logout_responses_signed, false]
         response_doc = slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id, nil, true)
         settings.security.logout_responses_signed = lrs
-        slo_logout_response.sign_document(response_doc, settings)
+        encrypted_doc = slo_logout_response.encrypt_document(response_doc, settings)
+        slo_logout_response.sign_document(encrypted_doc, settings)
       end
 
       def soap_parse(message) #MC
