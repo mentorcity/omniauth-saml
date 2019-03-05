@@ -329,6 +329,7 @@ end
           logout_request_id = logout_request.id
           if settings.single_logout_service_binding =~ /SOAP/ #MC
             response = soap_slo_logout_response(settings, logout_request_id)
+            message_log(location: :handle_logout_response, sent: response.to_s) #MC 
             Rack::Response.new(response.to_s, 200, { "Content-Type" => "application/xml; charset=utf-8" }).finish #MC
           else #MC
             logout_response = OneLogin::RubySaml::SloLogoutresponse.new.create(settings, logout_request_id, nil, RelayState: slo_relay_state)
