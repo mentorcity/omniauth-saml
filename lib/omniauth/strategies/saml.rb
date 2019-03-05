@@ -319,7 +319,8 @@ end
       end
 
       def handle_logout_request(raw_request, settings)
-        logout_request = OneLogin::RubySaml::SloLogoutrequest.new(raw_request)
+        opts = { settings: settings }
+        logout_request = OneLogin::RubySaml::SloLogoutrequest.new(raw_request, opts)
 
         if logout_request.is_valid? &&
           logout_request.name_id == session["saml_uid"]
