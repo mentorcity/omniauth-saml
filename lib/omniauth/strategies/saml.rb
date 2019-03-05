@@ -351,6 +351,7 @@ end
         # to compare it with the response we get back
         session["saml_transaction_id"] = logout_request.uuid
 
+        settings.sessionindex ||= session["sessionindex"] #MC
         if settings.name_identifier_value.nil?
           settings.name_identifier_value = session["saml_uid"]
         end
