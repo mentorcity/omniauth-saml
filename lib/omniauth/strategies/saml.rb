@@ -212,19 +212,21 @@ end
         if settings.name_identifier_value.nil?
           settings.name_identifier_value = session[:userid]
         end
-        lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
-        request_doc = logout_request.create_logout_request_xml_doc(settings, true)
-        settings.security.logout_requests_signed = lrs
-        encrypted_doc = logout_request.encrypt_document(request_doc, settings)
-        logout_request.sign_document(encrypted_doc, settings)
+        #lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
+        #request_doc = logout_request.create_logout_request_xml_doc(settings, true)
+        #settings.security.logout_requests_signed = lrs
+        #encrypted_doc = logout_request.encrypt_document(request_doc, settings)
+        #logout_request.sign_document(encrypted_doc, settings)
+        logout_request.create_logout_request_xml_doc(settings, true)
       end
 
       def soap_slo_logout_response(settings, logout_request_id) #MC
         slo_logout_response = OneLogin::RubySaml::SloLogoutresponse.new()
-        lrs, settings.security.logout_responses_signed = [settings.security.logout_responses_signed, false]
-        response_doc = slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id, nil, true)
-        settings.security.logout_responses_signed = lrs
-        slo_logout_response.sign_document(response_doc, settings)
+        #lrs, settings.security.logout_responses_signed = [settings.security.logout_responses_signed, false]
+        #response_doc = slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id)
+        #settings.security.logout_responses_signed = lrs
+        #slo_logout_response.sign_document(response_doc, settings)
+        slo_logout_response.create_logout_response_xml_doc(settings, logout_request_id)
       end
 
       def soap_parse(message) #MC
