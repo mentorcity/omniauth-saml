@@ -212,12 +212,12 @@ end
         if settings.name_identifier_value.nil?
           settings.name_identifier_value = session[:userid]
         end
+        #return logout_request.create_logout_request_xml_doc(settings, true)
         #lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
-        #request_doc = logout_request.create_logout_request_xml_doc(settings, true)
+        request_doc = logout_request.create_logout_request_xml_doc(settings, true)
         #settings.security.logout_requests_signed = lrs
-        #encrypted_doc = logout_request.encrypt_document(request_doc, settings)
-        #logout_request.sign_document(encrypted_doc, settings)
-        logout_request.create_logout_request_xml_doc(settings, true)
+        encrypted_doc = logout_request.encrypt_document(request_doc, settings)
+        logout_request.sign_document(encrypted_doc, settings)
       end
 
       def soap_slo_logout_response(settings, logout_request_id) #MC
