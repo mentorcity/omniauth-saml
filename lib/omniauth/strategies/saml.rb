@@ -154,7 +154,8 @@ end
                 #TODO: something with res? What if it's not 200?
                 redirect(slo_relay_state) #MC
               else #MC
-                redirect(generate_logout_request(settings))
+                redirect(soap_logout_request(settings))
+                #redirect(generate_logout_request(settings))
               end #MC
             else
               Rack::Response.new("Not Implemented", 501, { "Content-Type" => "text/html" }).finish
@@ -213,9 +214,9 @@ end
           settings.name_identifier_value = session[:userid]
         end
         #return logout_request.create_logout_request_xml_doc(settings, true)
-        #lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
-        request_doc = logout_request.create_logout_request_xml_doc(settings, true)
-        #settings.security.logout_requests_signed = lrs
+        lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
+        request_doc = logout_request.create_logout_request_xml_doc(settings)
+        settings.security.logout_requests_signed = lrs
         encrypted_doc = logout_request.encrypt_document(request_doc, settings)
         logout_request.sign_document(encrypted_doc, settings)
       end
