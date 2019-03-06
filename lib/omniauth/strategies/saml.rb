@@ -154,8 +154,7 @@ end
                 #TODO: something with res? What if it's not 200?
                 redirect(slo_relay_state) #MC
               else #MC
-                redirect(soap_logout_request(settings))
-                #redirect(generate_logout_request(settings))
+                redirect(generate_logout_request(settings))
               end #MC
             else
               Rack::Response.new("Not Implemented", 501, { "Content-Type" => "text/html" }).finish
@@ -205,21 +204,6 @@ end
         return if Rails.env.production?
         direction = params.key?(:sent) ? :sent : :received
         MessageLogger.log("#{params[:location]}: #{direction}: #{params[direction]}")
-      end
-
-      def soap_logout_request(settings) #MC
-        logout_request = OneLogin::RubySaml::Logoutrequest.new()
-        session[:transaction_id] = logout_request.uuid
-        if settings.name_identifier_value.nil?
-          settings.name_identifier_value = session[:userid]
-        end
-        #return logout_request.create_logout_request_xml_doc(settings, true)
-        settings.sessionindex ||= session["sessionindex"] #MC
-        lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
-        request_doc = logout_request.create_logout_request_xml_doc(settings)
-        settings.security.logout_requests_signed = lrs
-        encrypted_doc = logout_request.encrypt_document(request_doc, settings)
-        logout_request.sign_document(encrypted_doc, settings)
       end
 
       def soap_slo_logout_response(settings, logout_request_id) #MC
@@ -343,6 +327,21 @@ end
         else
           raise OmniAuth::Strategies::SAML::ValidationError.new("SAML failed to process LogoutRequest")
         end
+      end
+
+      def soap_logout_request(settings) #MC
+        logout_request = OneLogin::RubySaml::Logoutrequest.new()
+        session[:transaction_id] = logout_request.uuid
+        if settings.name_identifier_value.nil?
+          settings.name_identifier_value = session[:userid]
+        end
+        #return logout_request.create_logout_request_xml_doc(settings, true)
+        settings.sessionindex ||= session["sessionindex"] #MC
+        lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
+        request_doc = logout_request.create_logout_request_xml_doc(settings)
+        settings.security.logout_requests_signed = lrs
+        encrypted_doc = logout_request.encrypt_document(request_doc, settings)
+        logout_request.sign_document(encrypted_doc, settings)
       end
 
       # Create a SP initiated SLO: https://github.com/onelogin/ruby-saml#single-log-out
