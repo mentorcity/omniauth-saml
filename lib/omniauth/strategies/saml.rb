@@ -214,6 +214,7 @@ end
           settings.name_identifier_value = session[:userid]
         end
         #return logout_request.create_logout_request_xml_doc(settings, true)
+        settings.sessionindex ||= session["sessionindex"] #MC
         lrs, settings.security.logout_requests_signed = [settings.security.logout_requests_signed, false]
         request_doc = logout_request.create_logout_request_xml_doc(settings)
         settings.security.logout_requests_signed = lrs
