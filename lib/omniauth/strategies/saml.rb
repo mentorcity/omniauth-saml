@@ -294,7 +294,7 @@ end
         # the LogoutResponse, verify it, then actually delete our session.
 
         logout_response = OneLogin::RubySaml::Logoutresponse.new(raw_response, settings, :matches_request_id => session["saml_transaction_id"])
-        logout_response.soft = false
+        logout_response.soft = true #MC false 
         logout_response.validate
 
         session.delete("saml_uid")
